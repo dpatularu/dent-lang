@@ -4,7 +4,7 @@ use std::{
     process::exit,
 };
 
-use crate::lexer::Lexer;
+use crate::{lexer::Lexer, tokens::Token};
 
 pub struct Lox {
     had_error: bool,
@@ -38,8 +38,22 @@ impl Lox {
     }
 
     fn run(source: &str) {
+        let mut tokens: Vec<Token> = vec![];
+        let mut had_error = false;
         for token in Lexer::new(&source) {
-            println!("{:?}", token);
+            match token {
+                Ok(t) => {
+                    println!("{:?}", t);
+                    tokens.push(t);
+                }
+                Err(e) => {
+                    println!("{:?}", e);
+                    had_error = true;
+                }
+            }
+        }
+        if had_error {
+            exit(65);
         }
     }
 }

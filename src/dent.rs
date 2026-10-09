@@ -6,11 +6,11 @@ use std::{
 
 use crate::{lexer::Lexer, tokens::Token};
 
-pub struct Lox {
+pub struct Dent {
     had_error: bool,
 }
 
-impl Lox {
+impl Dent {
     pub fn new() -> Self {
         Self { had_error: false }
     }

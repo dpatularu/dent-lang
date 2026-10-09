@@ -1,21 +1,21 @@
 use core::panic;
 use std::env;
 
+mod dent;
 mod errors;
 mod lexer;
-mod lox;
 mod parser;
 mod scanner;
 mod tokens;
-use lox::*;
+use dent::*;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut lox = Lox::new();
+    let mut dent = Dent::new();
     match args.len() {
-        1 => lox.run_prompt(),
-        2 => lox.run_file(&args[1]),
-        _ => panic!("Usage: rlox [script]"),
+        1 => dent.run_prompt(),
+        2 => dent.run_file(&args[1]),
+        _ => panic!("Usage: dent [script]"),
     }
 }
 

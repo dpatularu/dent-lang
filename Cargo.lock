@@ -54,6 +54,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "dent-lang"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "phf",
+ "thiserror",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -196,16 +206,6 @@ name = "litemap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
-
-[[package]]
-name = "lox"
-version = "0.1.0"
-dependencies = [
- "miette",
- "phf",
- "thiserror",
- "unicode-segmentation",
-]
 
 [[package]]
 name = "memchr"

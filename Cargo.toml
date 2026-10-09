@@ -1,0 +1,10 @@
+[package]
+name = "lox"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+miette = { version = "7.6.0", features = ["fancy"] }
+phf = { version = "0.14.0", features = ["macros"] }
+thiserror = "2.0.21"
+unicode-segmentation = "1.13.3"

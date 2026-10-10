@@ -23,7 +23,6 @@ pub struct StringTerminationError {
     #[source_code]
     pub source_code: String,
 
-    pub token: Token,
     #[label = "this string literal"]
     pub err_span: SourceSpan,
 }
@@ -35,7 +34,6 @@ pub struct MalformedNumberError {
     #[source_code]
     pub source_code: String,
 
-    pub token: Token,
     #[label = "this number"]
     pub err_span: SourceSpan,
 }

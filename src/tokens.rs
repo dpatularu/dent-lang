@@ -19,7 +19,6 @@ pub enum TokenKind {
     Less,
     Greater,
     Slash,
-    Eof,
 
     String(String),
     Number(f64),

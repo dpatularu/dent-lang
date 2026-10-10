@@ -9,8 +9,6 @@ use crate::{
 };
 use phf::phf_map;
 
-const EOF_CHAR: char = '\0';
-
 static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
     "and" => TokenKind::And,
     "class" => TokenKind::Class,
@@ -51,6 +49,34 @@ impl<'a> Lexer<'a> {
     }
 }
 
+// Error constructors
+impl<'a> Lexer<'a> {
+    fn make_string_termination_error(&self, literal: &str) -> miette::Result<Token> {
+        Err(StringTerminationError {
+            source_code: self.source_code.into(),
+            err_span: (self.offset, literal.len()).into(),
+        }
+        .into())
+    }
+
+    fn make_malformed_number_error(&self, number: &str) -> miette::Result<Token> {
+        Err(MalformedNumberError {
+            source_code: self.source_code.into(),
+            err_span: (self.offset, number.len()).into(),
+        }
+        .into())
+    }
+
+    fn make_unknown_character_error(&self, c: char) -> miette::Result<Token> {
+        Err(SingleTokenError {
+            source_code: self.source_code.into(),
+            bad_char: c,
+            err_span: (self.offset, c.len_utf8()).into(),
+        }
+        .into())
+    }
+}
+
 // Helpers
 impl<'a> Lexer<'a> {
     fn make_token(&self, kind: TokenKind) -> Token {
@@ -76,7 +102,6 @@ impl<'a> Lexer<'a> {
             TokenKind::Less => Token::new(kind, line, offset),
             TokenKind::Greater => Token::new(kind, line, offset),
             TokenKind::Slash => Token::new(kind, line, offset),
-            TokenKind::Eof => Token::new(kind, line, offset),
             TokenKind::String(_) => Token::new(kind, line, offset),
             TokenKind::Number(_) => Token::new(kind, line, offset),
             TokenKind::Identifier(_) => Token::new(kind, line, offset),
@@ -101,159 +126,111 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn advance(&mut self) -> Option<(usize, char)> {
-        let (offset, c) = self.chars.next()?;
+    fn next_char(&mut self) -> Option<char> {
+        let (_, c) = self.chars.next()?;
         if self.prev == '\n' {
             self.lines += 1;
         }
         self.prev = c;
-        Some((offset, c))
+        Some(c)
     }
 
-    fn first(&self) -> char {
-        let f = self.chars.clone().next().map(|(_, c)| c);
-        f.unwrap_or(EOF_CHAR)
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().map(|(_, c)| c.to_owned())
     }
 
-    fn grab_until<F: Fn(char) -> bool>(&mut self, f: F, include: Vec<char>) -> String {
-        let mut string_literal: Vec<char> = vec![];
-        while let Some((_, c)) = self.advance()
-            && c != EOF_CHAR
+    fn advance_if<F: Fn(char) -> bool>(&mut self, f: F) -> Option<char> {
+        if let Some(c) = self.peek()
+            && f(c)
         {
-            if f(c) {
-                if include.contains(&c) {
-                    string_literal.push(c);
-                }
-                break;
-            } else {
-                string_literal.push(c);
-            }
+            self.next_char()
+        } else {
+            None
         }
-        string_literal.to_owned().iter().collect()
+    }
+
+    fn advance_until<F: Fn(char) -> bool>(&mut self, f: F) -> String {
+        let mut string_literal = String::new();
+        while let Some(c) = self.peek()
+            && !f(c)
+        {
+            self.next_char();
+            string_literal.push(c);
+        }
+        string_literal
+    }
+
+    fn either(&mut self, to_match: char, former: TokenKind, latter: TokenKind) -> Token {
+        if let Some(_) = self.advance_if(|c| c == to_match) {
+            self.make_token(former)
+        } else {
+            self.make_token(latter)
+        }
     }
 }
 
 // Token producers
 impl<'a> Lexer<'a> {
     fn line_comment(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '/' && self.first() == '/');
-        self.advance();
-        let comment_content = self.grab_until(|c| c == '\n', vec![]);
+        self.next_char(); // Consume second slash in comment
+
+        let comment_content = self.advance_until(|c| c == '\n');
+        self.next_char(); // Consume newline;
         Ok(self.make_token(TokenKind::LineComment(comment_content.into())))
     }
 
     fn block_comment(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '/' && self.first() == '*');
-        let mut comment = vec![self.prev];
+        self.next_char(); // Consume first * in comment
 
-        while let Some((_, c)) = self.advance() {
+        let mut comment = String::new();
+        while let Some(c) = self.next_char() {
             comment.push(c);
-            if c == '*' && self.first() == '/' {
-                let ending_slash = self.advance().map(|(_, c)| c).unwrap();
-                comment.push(ending_slash);
+            if c == '*'
+                && let Some('/') = self.peek()
+            {
+                self.next_char(); // Consume last slash
+                comment.pop(); // Remove last '*'
                 break;
+            } else if let None = self.peek() {
+                todo!("Unterminated block comment")
             }
         }
-        let comment: String = comment.to_owned().iter().collect();
-        let comment = comment
-            .trim_start_matches("/*")
-            .trim_end_matches("*/")
-            .to_owned();
+        let comment: String = comment;
 
         Ok(self.make_token(TokenKind::BlockComment(comment)))
     }
 
-    fn slash(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '/');
-        match self.first() {
-            '/' => self.line_comment(),
-            '*' => self.block_comment(),
-            _ => Ok(self.make_token(TokenKind::Slash)),
-        }
-    }
-
-    fn bang(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '!');
-        match self.first() {
-            '=' => {
-                self.advance();
-                Ok(self.make_token(TokenKind::BangEqual))
-            }
-            _ => Ok(self.make_token(TokenKind::Bang)),
-        }
-    }
-
-    fn equal(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '=');
-        match self.first() {
-            '=' => {
-                self.advance();
-                Ok(self.make_token(TokenKind::EqualEqual))
-            }
-            _ => Ok(self.make_token(TokenKind::Equal)),
-        }
-    }
-
-    fn greater(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '>');
-        match self.first() {
-            '=' => {
-                self.advance();
-                Ok(self.make_token(TokenKind::GreaterEqual))
-            }
-            _ => Ok(self.make_token(TokenKind::Greater)),
-        }
-    }
-
-    fn less(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '<');
-        match self.first() {
-            '=' => {
-                self.advance();
-                Ok(self.make_token(TokenKind::LessEqual))
-            }
-            _ => Ok(self.make_token(TokenKind::Less)),
-        }
-    }
-
     fn string(&mut self) -> miette::Result<Token> {
-        debug_assert!(self.prev == '"');
-        let literal = self.grab_until(|c| c == '"', vec!['"']);
-        if literal.chars().last().unwrap_or(EOF_CHAR) != '"' {
-            return Err(StringTerminationError {
-                source_code: self.source_code.into(),
-                err_span: (self.offset, literal.len()).into(),
-                token: self.make_token(TokenKind::String(literal)),
-            }
-            .into());
-        }
-        Ok(self.make_token(TokenKind::String(literal)))
-    }
-
-    fn number(&mut self, n: char) -> miette::Result<Token> {
-        debug_assert!(n.is_digit(10));
-        let first_part = self.grab_until(|c| !c.is_digit(10), vec!['.']);
-        let combined: String = if self.prev == '.' {
-            let second_part = self.grab_until(|c| !c.is_digit(10), vec![]);
-            format!("{}{}{}", n, first_part, second_part)
+        let literal = self.advance_until(|c| c == '"');
+        if let None = self.next_char() {
+            self.make_string_termination_error(&literal)
         } else {
-            format!("{}{}", n, first_part)
-        };
-        let token = self.make_token(TokenKind::Number(combined.parse().unwrap()));
-        if combined.parse::<f64>().is_err() {
-            return Err(MalformedNumberError {
-                source_code: self.source_code.into(),
-                err_span: (self.offset, combined.len()).into(),
-                token,
-            }
-            .into());
-        };
-        Ok(token)
+            Ok(self.make_token(TokenKind::String(literal)))
+        }
     }
 
-    fn identifier(&mut self, id_start: char) -> miette::Result<Token> {
-        let rest = self.grab_until(|c| !c.is_alphanumeric(), vec![]);
-        let id = format!("{}{}", id_start, rest);
+    fn number(&mut self) -> miette::Result<Token> {
+        let mut number = String::from(self.prev);
+        let first_part = self.advance_until(|n| !n.is_numeric());
+        number.push_str(&first_part);
+        if let Some('.') = self.peek() {
+            self.next_char();
+            if let Some('0'..'9') = self.peek() {
+                let second_part = self.advance_until(|n| !n.is_numeric());
+                number.push('.');
+                number.push_str(&second_part);
+            }
+        }
+        match number.parse() {
+            Ok(n) => Ok(self.make_token(TokenKind::Number(n))),
+            Err(_) => self.make_malformed_number_error(&number),
+        }
+    }
+
+    fn identifier(&mut self) -> miette::Result<Token> {
+        let mut id = String::from(self.prev);
+        let rest = self.advance_until(|c| !c.is_alphanumeric());
+        id.push_str(&rest);
 
         let token_type = KEYWORDS
             .get(&id)
@@ -265,49 +242,48 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn advance_token(&mut self) -> miette::Result<Token> {
-        let Some((offset, first_char)) = self.advance() else {
-            return Ok(self.make_token(TokenKind::Eof));
-        };
+    fn next_token(&mut self, char_with_index: (usize, char)) -> Option<miette::Result<Token>> {
+        let (offset, first_char) = char_with_index;
+        self.prev = first_char;
         self.offset = offset;
 
-        let skipped_comments = match first_char {
-            c if c.is_whitespace() => true,
-            _ => false,
-        };
-        if skipped_comments {
-            return self.advance_token();
+        if first_char.is_whitespace() {
+            return None;
         }
 
         let token = match first_char {
-            '\0' => Ok(self.make_token(TokenKind::Eof)),
             '(' => Ok(self.make_token(TokenKind::LeftParan)),
             ')' => Ok(self.make_token(TokenKind::RightParan)),
             '{' => Ok(self.make_token(TokenKind::LeftBrace)),
             '}' => Ok(self.make_token(TokenKind::RightBrace)),
             ',' => Ok(self.make_token(TokenKind::Comma)),
-            '.' => Ok(self.make_token(TokenKind::Dot)),
+            '.' => {
+                if let Some('0'..'9') = self.peek() {
+                    self.number()
+                } else {
+                    Ok(self.make_token(TokenKind::Dot))
+                }
+            }
             '-' => Ok(self.make_token(TokenKind::Minus)),
             '+' => Ok(self.make_token(TokenKind::Plus)),
             '*' => Ok(self.make_token(TokenKind::Star)),
             ';' => Ok(self.make_token(TokenKind::SemiColon)),
-            '/' => self.slash(),
-            '<' => self.less(),
-            '>' => self.greater(),
-            '!' => self.bang(),
-            '=' => self.equal(),
+            '/' => match self.peek() {
+                Some('/') => self.line_comment(),
+                Some('*') => self.block_comment(),
+                _ => Ok(self.make_token(TokenKind::Slash)),
+            },
+            '<' => Ok(self.either('=', TokenKind::Less, TokenKind::LessEqual)),
+            '>' => Ok(self.either('=', TokenKind::Greater, TokenKind::GreaterEqual)),
+            '!' => Ok(self.either('=', TokenKind::Bang, TokenKind::BangEqual)),
+            '=' => Ok(self.either('=', TokenKind::Equal, TokenKind::EqualEqual)),
             '"' => self.string(),
-            n @ '0'..'9' => self.number(n),
-            id_start if id_start.is_alphanumeric() || id_start == '_' => self.identifier(id_start),
-            c => Err(SingleTokenError {
-                source_code: self.source_code.into(),
-                bad_char: c,
-                err_span: (self.offset, c.len_utf8()).into(),
-            }
-            .into()),
+            n if n.is_numeric() => self.number(),
+            id_start if id_start.is_alphanumeric() || id_start == '_' => self.identifier(),
+            c => self.make_unknown_character_error(c),
         };
 
-        token
+        Some(token)
     }
 }
 
@@ -315,16 +291,13 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = miette::Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let token = self.advance_token();
-        if token.is_ok() {
-            let token = token.unwrap();
-            if token.kind != TokenKind::Eof {
-                Some(Ok(token))
+        while let Some(char_with_index) = self.chars.next() {
+            if let Some(token) = self.next_token(char_with_index) {
+                return Some(token);
             } else {
-                None
+                break;
             }
-        } else {
-            Some(token)
         }
+        None
     }
 }

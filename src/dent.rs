@@ -52,8 +52,6 @@ impl Dent {
                 }
             }
         }
-        if had_error {
-            exit(65);
-        }
+        if had_error {}
     }
 }

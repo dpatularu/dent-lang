@@ -3,6 +3,7 @@ use std::env;
 
 mod dent;
 mod errors;
+mod grammar;
 mod lexer;
 mod parser;
 mod scanner;

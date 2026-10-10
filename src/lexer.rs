@@ -7,7 +7,6 @@ use crate::{
         TokenKind::{self},
     },
 };
-use miette::Error;
 use phf::phf_map;
 
 const EOF_CHAR: char = '\0';

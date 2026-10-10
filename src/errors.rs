@@ -39,3 +39,11 @@ pub struct MalformedNumberError {
     #[label = "this number"]
     pub err_span: SourceSpan,
 }
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Malformed number")]
+#[diagnostic(help("Only floating point numbers are supported"))]
+pub struct ExpressionParseError {
+    #[source_code]
+    pub source_code: String,
+}

@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     LeftParan,
     RightParan,
@@ -21,10 +21,10 @@ pub enum TokenKind {
     Slash,
     Eof,
 
-    String,
-    Number,
+    String(String),
+    Number(f64),
 
-    Identifier,
+    Identifier(String),
 
     And,
     Class,
@@ -43,33 +43,19 @@ pub enum TokenKind {
     Var,
     While,
 
-    LineComment,
-    BlockComment,
+    LineComment(String),
+    BlockComment(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    lexeme: String,
-    literal: Option<String>,
     line: usize,
     offset: usize,
 }
 
 impl Token {
-    pub fn new(
-        kind: TokenKind,
-        lexeme: &str,
-        literal: Option<&str>,
-        line: usize,
-        offset: usize,
-    ) -> Self {
-        Self {
-            kind,
-            lexeme: lexeme.into(),
-            literal: literal.map(|x| x.into()),
-            line,
-            offset,
-        }
+    pub fn new(kind: TokenKind, line: usize, offset: usize) -> Self {
+        Self { kind, line, offset }
     }
 }

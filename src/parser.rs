@@ -38,8 +38,8 @@ impl<'a> Parser<'a> {
             match token.kind {
                 TokenKind::LeftParan => {}
                 TokenKind::Minus | TokenKind::Bang => {}
-                TokenKind::Number => {}
-                TokenKind::String => {}
+                TokenKind::Number(_) => {}
+                TokenKind::String(_) => {}
                 TokenKind::True => {}
                 TokenKind::False => {}
                 TokenKind::Nil => {}

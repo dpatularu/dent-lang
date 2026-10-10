@@ -1,4 +1,4 @@
-use std::str::CharIndices;
+use std::{iter::Peekable, str::CharIndices};
 
 use crate::{
     errors::{MalformedNumberError, SingleTokenError, StringTerminationError},
@@ -32,7 +32,7 @@ static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
 
 pub struct Lexer<'a> {
     source_code: &'a str,
-    chars: CharIndices<'a>,
+    chars: Peekable<CharIndices<'a>>,
     prev: char,
     lines: usize,
     offset: usize,
@@ -43,7 +43,7 @@ impl<'a> Lexer<'a> {
     pub fn new(source_code: &'a str) -> Self {
         Self {
             source_code,
-            chars: source_code.char_indices(),
+            chars: source_code.char_indices().peekable(),
             prev: '\0',
             lines: 1,
             offset: 0,
@@ -53,71 +53,51 @@ impl<'a> Lexer<'a> {
 
 // Helpers
 impl<'a> Lexer<'a> {
-    fn make_token(&self, kind: TokenKind, literal: Option<&str>) -> Token {
+    fn make_token(&self, kind: TokenKind) -> Token {
         let line = self.lines;
         let offset = self.offset;
         match kind {
-            TokenKind::LeftParan => Token::new(kind, "(", None, line, offset),
-            TokenKind::RightParan => Token::new(kind, ")", None, line, offset),
-            TokenKind::LeftBrace => Token::new(kind, "{", None, line, offset),
-            TokenKind::RightBrace => Token::new(kind, "}", None, line, offset),
-            TokenKind::Comma => Token::new(kind, ",", None, line, offset),
-            TokenKind::Dot => Token::new(kind, ".", None, line, offset),
-            TokenKind::Minus => Token::new(kind, "-", None, line, offset),
-            TokenKind::Plus => Token::new(kind, "+", None, line, offset),
-            TokenKind::Star => Token::new(kind, "*", None, line, offset),
-            TokenKind::SemiColon => Token::new(kind, ";", None, line, offset),
-            TokenKind::Bang => Token::new(kind, "!", None, line, offset),
-            TokenKind::BangEqual => Token::new(kind, "!=", None, line, offset),
-            TokenKind::Equal => Token::new(kind, "=", None, line, offset),
-            TokenKind::EqualEqual => Token::new(kind, "==", None, line, offset),
-            TokenKind::LessEqual => Token::new(kind, "<=", None, line, offset),
-            TokenKind::GreaterEqual => Token::new(kind, ">=", None, line, offset),
-            TokenKind::Less => Token::new(kind, "<", None, line, offset),
-            TokenKind::Greater => Token::new(kind, ">", None, line, offset),
-            TokenKind::Slash => Token::new(kind, "/", None, line, offset),
-            TokenKind::Eof => Token::new(kind, "\0", None, line, offset),
-            TokenKind::String => {
-                let lexeme = literal.unwrap();
-                let literal = lexeme.trim_matches('\"');
-                Token::new(kind, lexeme, Some(literal), line, offset)
-            }
-            TokenKind::Number => Token::new(kind, literal.unwrap(), literal, line, offset),
-            TokenKind::Identifier => Token::new(kind, literal.unwrap(), literal, line, offset),
-            TokenKind::And => Token::new(kind, "and", None, line, offset),
-            TokenKind::Class => Token::new(kind, "class", None, line, offset),
-            TokenKind::Else => Token::new(kind, "else", None, line, offset),
-            TokenKind::False => Token::new(kind, "false", None, line, offset),
-            TokenKind::For => Token::new(kind, "for", None, line, offset),
-            TokenKind::Fun => Token::new(kind, "fun", None, line, offset),
-            TokenKind::If => Token::new(kind, "if", None, line, offset),
-            TokenKind::Nil => Token::new(kind, "nil", None, line, offset),
-            TokenKind::Or => Token::new(kind, "or", None, line, offset),
-            TokenKind::Print => Token::new(kind, "print", None, line, offset),
-            TokenKind::Return => Token::new(kind, "return", None, line, offset),
-            TokenKind::Super => Token::new(kind, "super", None, line, offset),
-            TokenKind::This => Token::new(kind, "this", None, line, offset),
-            TokenKind::True => Token::new(kind, "true", None, line, offset),
-            TokenKind::Var => Token::new(kind, "var", None, line, offset),
-            TokenKind::While => Token::new(kind, "while", None, line, offset),
-            TokenKind::LineComment => Token::new(
-                kind,
-                literal.unwrap(),
-                literal.map(|s| &s[2..]).clone(),
-                line,
-                offset,
-            ),
-            TokenKind::BlockComment => Token::new(
-                kind,
-                literal.unwrap(),
-                literal
-                    .map(|s| s.trim_start_matches("/*").trim_end_matches("*/"))
-                    .clone(),
-                line - literal
-                    .map(|s| s.chars().filter(|&c| c == '\n').count())
-                    .unwrap(),
-                offset,
-            ),
+            TokenKind::LeftParan => Token::new(kind, line, offset),
+            TokenKind::RightParan => Token::new(kind, line, offset),
+            TokenKind::LeftBrace => Token::new(kind, line, offset),
+            TokenKind::RightBrace => Token::new(kind, line, offset),
+            TokenKind::Comma => Token::new(kind, line, offset),
+            TokenKind::Dot => Token::new(kind, line, offset),
+            TokenKind::Minus => Token::new(kind, line, offset),
+            TokenKind::Plus => Token::new(kind, line, offset),
+            TokenKind::Star => Token::new(kind, line, offset),
+            TokenKind::SemiColon => Token::new(kind, line, offset),
+            TokenKind::Bang => Token::new(kind, line, offset),
+            TokenKind::BangEqual => Token::new(kind, line, offset),
+            TokenKind::Equal => Token::new(kind, line, offset),
+            TokenKind::EqualEqual => Token::new(kind, line, offset),
+            TokenKind::LessEqual => Token::new(kind, line, offset),
+            TokenKind::GreaterEqual => Token::new(kind, line, offset),
+            TokenKind::Less => Token::new(kind, line, offset),
+            TokenKind::Greater => Token::new(kind, line, offset),
+            TokenKind::Slash => Token::new(kind, line, offset),
+            TokenKind::Eof => Token::new(kind, line, offset),
+            TokenKind::String(_) => Token::new(kind, line, offset),
+            TokenKind::Number(_) => Token::new(kind, line, offset),
+            TokenKind::Identifier(_) => Token::new(kind, line, offset),
+            TokenKind::And => Token::new(kind, line, offset),
+            TokenKind::Class => Token::new(kind, line, offset),
+            TokenKind::Else => Token::new(kind, line, offset),
+            TokenKind::False => Token::new(kind, line, offset),
+            TokenKind::For => Token::new(kind, line, offset),
+            TokenKind::Fun => Token::new(kind, line, offset),
+            TokenKind::If => Token::new(kind, line, offset),
+            TokenKind::Nil => Token::new(kind, line, offset),
+            TokenKind::Or => Token::new(kind, line, offset),
+            TokenKind::Print => Token::new(kind, line, offset),
+            TokenKind::Return => Token::new(kind, line, offset),
+            TokenKind::Super => Token::new(kind, line, offset),
+            TokenKind::This => Token::new(kind, line, offset),
+            TokenKind::True => Token::new(kind, line, offset),
+            TokenKind::Var => Token::new(kind, line, offset),
+            TokenKind::While => Token::new(kind, line, offset),
+            TokenKind::LineComment(_) => Token::new(kind, line, offset),
+            TokenKind::BlockComment(_) => Token::new(kind, line, offset),
         }
     }
 
@@ -159,10 +139,7 @@ impl<'a> Lexer<'a> {
         debug_assert!(self.prev == '/' && self.first() == '/');
         self.advance();
         let comment_content = self.grab_until(|c| c == '\n', vec![]);
-        Ok(self.make_token(
-            TokenKind::LineComment,
-            Some(&format!("//{}", comment_content)),
-        ))
+        Ok(self.make_token(TokenKind::LineComment(comment_content.into())))
     }
 
     fn block_comment(&mut self) -> miette::Result<Token> {
@@ -178,7 +155,12 @@ impl<'a> Lexer<'a> {
             }
         }
         let comment: String = comment.to_owned().iter().collect();
-        Ok(self.make_token(TokenKind::BlockComment, Some(&comment)))
+        let comment = comment
+            .trim_start_matches("/*")
+            .trim_end_matches("*/")
+            .to_owned();
+
+        Ok(self.make_token(TokenKind::BlockComment(comment)))
     }
 
     fn slash(&mut self) -> miette::Result<Token> {
@@ -186,7 +168,7 @@ impl<'a> Lexer<'a> {
         match self.first() {
             '/' => self.line_comment(),
             '*' => self.block_comment(),
-            _ => Ok(self.make_token(TokenKind::Slash, None)),
+            _ => Ok(self.make_token(TokenKind::Slash)),
         }
     }
 
@@ -195,9 +177,9 @@ impl<'a> Lexer<'a> {
         match self.first() {
             '=' => {
                 self.advance();
-                Ok(self.make_token(TokenKind::BangEqual, None))
+                Ok(self.make_token(TokenKind::BangEqual))
             }
-            _ => Ok(self.make_token(TokenKind::Bang, None)),
+            _ => Ok(self.make_token(TokenKind::Bang)),
         }
     }
 
@@ -206,9 +188,9 @@ impl<'a> Lexer<'a> {
         match self.first() {
             '=' => {
                 self.advance();
-                Ok(self.make_token(TokenKind::EqualEqual, None))
+                Ok(self.make_token(TokenKind::EqualEqual))
             }
-            _ => Ok(self.make_token(TokenKind::Equal, None)),
+            _ => Ok(self.make_token(TokenKind::Equal)),
         }
     }
 
@@ -217,9 +199,9 @@ impl<'a> Lexer<'a> {
         match self.first() {
             '=' => {
                 self.advance();
-                Ok(self.make_token(TokenKind::GreaterEqual, None))
+                Ok(self.make_token(TokenKind::GreaterEqual))
             }
-            _ => Ok(self.make_token(TokenKind::Greater, None)),
+            _ => Ok(self.make_token(TokenKind::Greater)),
         }
     }
 
@@ -228,9 +210,9 @@ impl<'a> Lexer<'a> {
         match self.first() {
             '=' => {
                 self.advance();
-                Ok(self.make_token(TokenKind::LessEqual, None))
+                Ok(self.make_token(TokenKind::LessEqual))
             }
-            _ => Ok(self.make_token(TokenKind::Less, None)),
+            _ => Ok(self.make_token(TokenKind::Less)),
         }
     }
 
@@ -241,11 +223,11 @@ impl<'a> Lexer<'a> {
             return Err(StringTerminationError {
                 source_code: self.source_code.into(),
                 err_span: (self.offset, literal.len()).into(),
-                token: self.make_token(TokenKind::String, Some(&format!("\"{}", literal))),
+                token: self.make_token(TokenKind::String(literal)),
             }
             .into());
         }
-        Ok(self.make_token(TokenKind::String, Some(&format!("\"{}", literal))))
+        Ok(self.make_token(TokenKind::String(literal)))
     }
 
     fn number(&mut self, n: char) -> miette::Result<Token> {
@@ -257,7 +239,7 @@ impl<'a> Lexer<'a> {
         } else {
             format!("{}{}", n, first_part)
         };
-        let token = self.make_token(TokenKind::Number, Some(&combined));
+        let token = self.make_token(TokenKind::Number(combined.parse().unwrap()));
         if combined.parse::<f64>().is_err() {
             return Err(MalformedNumberError {
                 source_code: self.source_code.into(),
@@ -273,16 +255,19 @@ impl<'a> Lexer<'a> {
         let rest = self.grab_until(|c| !c.is_alphanumeric(), vec![]);
         let id = format!("{}{}", id_start, rest);
 
-        let token_type = KEYWORDS.get(&id).cloned().unwrap_or(TokenKind::Identifier);
+        let token_type = KEYWORDS
+            .get(&id)
+            .cloned()
+            .unwrap_or(TokenKind::Identifier(id.into()));
         match token_type {
-            TokenKind::Identifier => Ok(self.make_token(token_type, Some(&id))),
-            _ => Ok(self.make_token(token_type, None)),
+            TokenKind::Identifier(_) => Ok(self.make_token(token_type)),
+            _ => Ok(self.make_token(token_type)),
         }
     }
 
     fn advance_token(&mut self) -> miette::Result<Token> {
         let Some((offset, first_char)) = self.advance() else {
-            return Ok(self.make_token(TokenKind::Eof, None));
+            return Ok(self.make_token(TokenKind::Eof));
         };
         self.offset = offset;
 
@@ -295,17 +280,17 @@ impl<'a> Lexer<'a> {
         }
 
         let token = match first_char {
-            '\0' => Ok(self.make_token(TokenKind::Eof, None)),
-            '(' => Ok(self.make_token(TokenKind::LeftParan, None)),
-            ')' => Ok(self.make_token(TokenKind::RightParan, None)),
-            '{' => Ok(self.make_token(TokenKind::LeftBrace, None)),
-            '}' => Ok(self.make_token(TokenKind::RightBrace, None)),
-            ',' => Ok(self.make_token(TokenKind::Comma, None)),
-            '.' => Ok(self.make_token(TokenKind::Dot, None)),
-            '-' => Ok(self.make_token(TokenKind::Minus, None)),
-            '+' => Ok(self.make_token(TokenKind::Plus, None)),
-            '*' => Ok(self.make_token(TokenKind::Star, None)),
-            ';' => Ok(self.make_token(TokenKind::SemiColon, None)),
+            '\0' => Ok(self.make_token(TokenKind::Eof)),
+            '(' => Ok(self.make_token(TokenKind::LeftParan)),
+            ')' => Ok(self.make_token(TokenKind::RightParan)),
+            '{' => Ok(self.make_token(TokenKind::LeftBrace)),
+            '}' => Ok(self.make_token(TokenKind::RightBrace)),
+            ',' => Ok(self.make_token(TokenKind::Comma)),
+            '.' => Ok(self.make_token(TokenKind::Dot)),
+            '-' => Ok(self.make_token(TokenKind::Minus)),
+            '+' => Ok(self.make_token(TokenKind::Plus)),
+            '*' => Ok(self.make_token(TokenKind::Star)),
+            ';' => Ok(self.make_token(TokenKind::SemiColon)),
             '/' => self.slash(),
             '<' => self.less(),
             '>' => self.greater(),

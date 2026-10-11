@@ -4,7 +4,7 @@ use std::{
     process::exit,
 };
 
-use crate::{lexer::Lexer, tokens::Token};
+use crate::{lexer::Lexer, parser::Parser};
 
 pub struct Dent {
     had_error: bool,
@@ -38,20 +38,19 @@ impl Dent {
     }
 
     fn run(source: &str) {
-        let mut tokens: Vec<Token> = vec![];
-        let mut had_error = false;
-        for token in Lexer::new(&source) {
+        let lexer = Lexer::new(source)
+            .filter_map(|t| if t.is_ok() { Some(t.unwrap()) } else { None })
+            .collect();
+        let parser = Parser::new(lexer, &source);
+        for token in parser {
             match token {
                 Ok(t) => {
                     println!("{:?}", t);
-                    tokens.push(t);
                 }
                 Err(e) => {
                     println!("{:?}", e);
-                    had_error = true;
                 }
             }
         }
-        if had_error {}
     }
 }

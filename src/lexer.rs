@@ -284,10 +284,11 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(char_with_index) = self.chars.next() {
-            return self
-                .next_token(char_with_index)
-                .map(|token| token.map_err(|err| err.into_miette_report(self.source_code)));
+            if let Some(token) = self.next_token(char_with_index) {
+                return Some(token.map_err(|e| e.into_miette_report(self.source_code)));
+            }
         }
         None
     }
 }
+

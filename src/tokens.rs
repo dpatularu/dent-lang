@@ -49,7 +49,7 @@ pub enum TokenKind {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    offset: usize,
+    pub offset: usize,
 }
 
 impl Token {

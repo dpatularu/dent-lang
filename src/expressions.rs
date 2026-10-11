@@ -1,26 +1,26 @@
+#[derive(Debug, Clone)]
 pub enum UnaryOperator {
     Negative,
     Not,
 }
 
-pub enum LogicalOperator {
+#[derive(Debug, Clone)]
+pub enum BinaryOperator {
+    Equal,
+    NotEqual,
     And,
     Or,
-}
-
-pub enum BinaryOperator {
-    BoolEqual,
-    BoolNotEqual,
     Less,
     Greater,
-    LessOrEqual,
-    GreaterOrEqual,
+    LessEqual,
+    GreaterEqual,
     Plus,
     Minus,
     Multiply,
     Divide,
 }
 
+#[derive(Debug, Clone)]
 pub enum Expression {
     Number(f64),
     String(String),

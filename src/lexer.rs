@@ -1,7 +1,7 @@
 use std::{iter::Peekable, str::CharIndices};
 
 use crate::{
-    errors::{MalformedNumberError, SingleTokenError, StringTerminationError},
+    lexer_errors::LexerError::{self},
     tokens::{
         Token,
         TokenKind::{self},
@@ -32,7 +32,6 @@ pub struct Lexer<'a> {
     source_code: &'a str,
     chars: Peekable<CharIndices<'a>>,
     prev: char,
-    lines: usize,
     offset: usize,
 }
 
@@ -43,7 +42,6 @@ impl<'a> Lexer<'a> {
             source_code,
             chars: source_code.char_indices().peekable(),
             prev: '\0',
-            lines: 1,
             offset: 0,
         }
     }
@@ -51,86 +49,82 @@ impl<'a> Lexer<'a> {
 
 // Error constructors
 impl<'a> Lexer<'a> {
-    fn make_string_termination_error(&self, literal: &str) -> miette::Result<Token> {
-        Err(StringTerminationError {
-            source_code: self.source_code.into(),
-            err_span: (self.offset, literal.len()).into(),
-        }
-        .into())
+    fn make_string_termination_error(&self, literal: &str) -> Result<Token, LexerError> {
+        Err(LexerError::UnterminatedString {
+            span: self.offset..(self.offset + literal.len()),
+        })
     }
 
-    fn make_malformed_number_error(&self, number: &str) -> miette::Result<Token> {
-        Err(MalformedNumberError {
-            source_code: self.source_code.into(),
-            err_span: (self.offset, number.len()).into(),
-        }
-        .into())
+    fn make_malformed_number_error(&self, number: &str) -> Result<Token, LexerError> {
+        Err(LexerError::MalformedNumber {
+            span: self.offset..(self.offset + number.len()),
+        })
     }
 
-    fn make_unknown_character_error(&self, c: char) -> miette::Result<Token> {
-        Err(SingleTokenError {
-            source_code: self.source_code.into(),
-            bad_char: c,
-            err_span: (self.offset, c.len_utf8()).into(),
-        }
-        .into())
+    fn make_unknown_character_error(&self, c: char) -> Result<Token, LexerError> {
+        Err(LexerError::UnknownCharacter {
+            character: c,
+            span: self.offset..(self.offset + c.len_utf8()),
+        })
+    }
+
+    fn make_unterminated_block_comment(&self, block_comment: &str) -> Result<Token, LexerError> {
+        Err(LexerError::UnterminatedBlockComment {
+            span: self.offset..(self.offset + block_comment.len()),
+        })
     }
 }
 
 // Helpers
 impl<'a> Lexer<'a> {
     fn make_token(&self, kind: TokenKind) -> Token {
-        let line = self.lines;
         let offset = self.offset;
         match kind {
-            TokenKind::LeftParan => Token::new(kind, line, offset),
-            TokenKind::RightParan => Token::new(kind, line, offset),
-            TokenKind::LeftBrace => Token::new(kind, line, offset),
-            TokenKind::RightBrace => Token::new(kind, line, offset),
-            TokenKind::Comma => Token::new(kind, line, offset),
-            TokenKind::Dot => Token::new(kind, line, offset),
-            TokenKind::Minus => Token::new(kind, line, offset),
-            TokenKind::Plus => Token::new(kind, line, offset),
-            TokenKind::Star => Token::new(kind, line, offset),
-            TokenKind::SemiColon => Token::new(kind, line, offset),
-            TokenKind::Bang => Token::new(kind, line, offset),
-            TokenKind::BangEqual => Token::new(kind, line, offset),
-            TokenKind::Equal => Token::new(kind, line, offset),
-            TokenKind::EqualEqual => Token::new(kind, line, offset),
-            TokenKind::LessEqual => Token::new(kind, line, offset),
-            TokenKind::GreaterEqual => Token::new(kind, line, offset),
-            TokenKind::Less => Token::new(kind, line, offset),
-            TokenKind::Greater => Token::new(kind, line, offset),
-            TokenKind::Slash => Token::new(kind, line, offset),
-            TokenKind::String(_) => Token::new(kind, line, offset),
-            TokenKind::Number(_) => Token::new(kind, line, offset),
-            TokenKind::Identifier(_) => Token::new(kind, line, offset),
-            TokenKind::And => Token::new(kind, line, offset),
-            TokenKind::Class => Token::new(kind, line, offset),
-            TokenKind::Else => Token::new(kind, line, offset),
-            TokenKind::False => Token::new(kind, line, offset),
-            TokenKind::For => Token::new(kind, line, offset),
-            TokenKind::Fun => Token::new(kind, line, offset),
-            TokenKind::If => Token::new(kind, line, offset),
-            TokenKind::Nil => Token::new(kind, line, offset),
-            TokenKind::Or => Token::new(kind, line, offset),
-            TokenKind::Print => Token::new(kind, line, offset),
-            TokenKind::Return => Token::new(kind, line, offset),
-            TokenKind::Super => Token::new(kind, line, offset),
-            TokenKind::This => Token::new(kind, line, offset),
-            TokenKind::True => Token::new(kind, line, offset),
-            TokenKind::Var => Token::new(kind, line, offset),
-            TokenKind::While => Token::new(kind, line, offset),
-            TokenKind::LineComment(_) => Token::new(kind, line, offset),
-            TokenKind::BlockComment(_) => Token::new(kind, line, offset),
+            TokenKind::LeftParen => Token::new(kind, offset),
+            TokenKind::RightParen => Token::new(kind, offset),
+            TokenKind::LeftBrace => Token::new(kind, offset),
+            TokenKind::RightBrace => Token::new(kind, offset),
+            TokenKind::Comma => Token::new(kind, offset),
+            TokenKind::Dot => Token::new(kind, offset),
+            TokenKind::Minus => Token::new(kind, offset),
+            TokenKind::Plus => Token::new(kind, offset),
+            TokenKind::Star => Token::new(kind, offset),
+            TokenKind::SemiColon => Token::new(kind, offset),
+            TokenKind::Bang => Token::new(kind, offset),
+            TokenKind::BangEqual => Token::new(kind, offset),
+            TokenKind::Equal => Token::new(kind, offset),
+            TokenKind::EqualEqual => Token::new(kind, offset),
+            TokenKind::LessEqual => Token::new(kind, offset),
+            TokenKind::GreaterEqual => Token::new(kind, offset),
+            TokenKind::Less => Token::new(kind, offset),
+            TokenKind::Greater => Token::new(kind, offset),
+            TokenKind::Slash => Token::new(kind, offset),
+            TokenKind::String(_) => Token::new(kind, offset),
+            TokenKind::Number(_) => Token::new(kind, offset),
+            TokenKind::Identifier(_) => Token::new(kind, offset),
+            TokenKind::And => Token::new(kind, offset),
+            TokenKind::Class => Token::new(kind, offset),
+            TokenKind::Else => Token::new(kind, offset),
+            TokenKind::False => Token::new(kind, offset),
+            TokenKind::For => Token::new(kind, offset),
+            TokenKind::Fun => Token::new(kind, offset),
+            TokenKind::If => Token::new(kind, offset),
+            TokenKind::Nil => Token::new(kind, offset),
+            TokenKind::Or => Token::new(kind, offset),
+            TokenKind::Print => Token::new(kind, offset),
+            TokenKind::Return => Token::new(kind, offset),
+            TokenKind::Super => Token::new(kind, offset),
+            TokenKind::This => Token::new(kind, offset),
+            TokenKind::True => Token::new(kind, offset),
+            TokenKind::Var => Token::new(kind, offset),
+            TokenKind::While => Token::new(kind, offset),
+            TokenKind::LineComment(_) => Token::new(kind, offset),
+            TokenKind::BlockComment(_) => Token::new(kind, offset),
         }
     }
 
     fn next_char(&mut self) -> Option<char> {
         let (_, c) = self.chars.next()?;
-        if self.prev == '\n' {
-            self.lines += 1;
-        }
         self.prev = c;
         Some(c)
     }
@@ -160,7 +154,7 @@ impl<'a> Lexer<'a> {
         string_literal
     }
 
-    fn either(&mut self, to_match: char, former: TokenKind, latter: TokenKind) -> Token {
+    fn either_or(&mut self, to_match: char, former: TokenKind, latter: TokenKind) -> Token {
         if let Some(_) = self.advance_if(|c| c == to_match) {
             self.make_token(former)
         } else {
@@ -171,7 +165,7 @@ impl<'a> Lexer<'a> {
 
 // Token producers
 impl<'a> Lexer<'a> {
-    fn line_comment(&mut self) -> miette::Result<Token> {
+    fn line_comment(&mut self) -> Result<Token, LexerError> {
         self.next_char(); // Consume second slash in comment
 
         let comment_content = self.advance_until(|c| c == '\n');
@@ -179,7 +173,7 @@ impl<'a> Lexer<'a> {
         Ok(self.make_token(TokenKind::LineComment(comment_content.into())))
     }
 
-    fn block_comment(&mut self) -> miette::Result<Token> {
+    fn block_comment(&mut self) -> Result<Token, LexerError> {
         self.next_char(); // Consume first * in comment
 
         let mut comment = String::new();
@@ -192,7 +186,7 @@ impl<'a> Lexer<'a> {
                 comment.pop(); // Remove last '*'
                 break;
             } else if let None = self.peek() {
-                todo!("Unterminated block comment")
+                return self.make_unterminated_block_comment(&comment);
             }
         }
         let comment: String = comment;
@@ -200,7 +194,7 @@ impl<'a> Lexer<'a> {
         Ok(self.make_token(TokenKind::BlockComment(comment)))
     }
 
-    fn string(&mut self) -> miette::Result<Token> {
+    fn string(&mut self) -> Result<Token, LexerError> {
         let literal = self.advance_until(|c| c == '"');
         if let None = self.next_char() {
             self.make_string_termination_error(&literal)
@@ -209,7 +203,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn number(&mut self) -> miette::Result<Token> {
+    fn number(&mut self) -> Result<Token, LexerError> {
         let mut number = String::from(self.prev);
         let first_part = self.advance_until(|n| !n.is_numeric());
         number.push_str(&first_part);
@@ -227,7 +221,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn identifier(&mut self) -> miette::Result<Token> {
+    fn identifier(&mut self) -> Result<Token, LexerError> {
         let mut id = String::from(self.prev);
         let rest = self.advance_until(|c| !c.is_alphanumeric());
         id.push_str(&rest);
@@ -236,13 +230,11 @@ impl<'a> Lexer<'a> {
             .get(&id)
             .cloned()
             .unwrap_or(TokenKind::Identifier(id.into()));
-        match token_type {
-            TokenKind::Identifier(_) => Ok(self.make_token(token_type)),
-            _ => Ok(self.make_token(token_type)),
-        }
+
+        Ok(self.make_token(token_type))
     }
 
-    fn next_token(&mut self, char_with_index: (usize, char)) -> Option<miette::Result<Token>> {
+    fn next_token(&mut self, char_with_index: (usize, char)) -> Option<Result<Token, LexerError>> {
         let (offset, first_char) = char_with_index;
         self.prev = first_char;
         self.offset = offset;
@@ -252,8 +244,8 @@ impl<'a> Lexer<'a> {
         }
 
         let token = match first_char {
-            '(' => Ok(self.make_token(TokenKind::LeftParan)),
-            ')' => Ok(self.make_token(TokenKind::RightParan)),
+            '(' => Ok(self.make_token(TokenKind::LeftParen)),
+            ')' => Ok(self.make_token(TokenKind::RightParen)),
             '{' => Ok(self.make_token(TokenKind::LeftBrace)),
             '}' => Ok(self.make_token(TokenKind::RightBrace)),
             ',' => Ok(self.make_token(TokenKind::Comma)),
@@ -273,10 +265,10 @@ impl<'a> Lexer<'a> {
                 Some('*') => self.block_comment(),
                 _ => Ok(self.make_token(TokenKind::Slash)),
             },
-            '<' => Ok(self.either('=', TokenKind::Less, TokenKind::LessEqual)),
-            '>' => Ok(self.either('=', TokenKind::Greater, TokenKind::GreaterEqual)),
-            '!' => Ok(self.either('=', TokenKind::Bang, TokenKind::BangEqual)),
-            '=' => Ok(self.either('=', TokenKind::Equal, TokenKind::EqualEqual)),
+            '<' => Ok(self.either_or('=', TokenKind::Less, TokenKind::LessEqual)),
+            '>' => Ok(self.either_or('=', TokenKind::Greater, TokenKind::GreaterEqual)),
+            '!' => Ok(self.either_or('=', TokenKind::Bang, TokenKind::BangEqual)),
+            '=' => Ok(self.either_or('=', TokenKind::Equal, TokenKind::EqualEqual)),
             '"' => self.string(),
             n if n.is_numeric() => self.number(),
             id_start if id_start.is_alphanumeric() || id_start == '_' => self.identifier(),
@@ -292,11 +284,9 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(char_with_index) = self.chars.next() {
-            if let Some(token) = self.next_token(char_with_index) {
-                return Some(token);
-            } else {
-                break;
-            }
+            return self
+                .next_token(char_with_index)
+                .map(|token| token.map_err(|err| err.into_miette_report(self.source_code)));
         }
         None
     }

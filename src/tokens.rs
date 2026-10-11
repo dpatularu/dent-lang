@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
-    LeftParan,
-    RightParan,
+    LeftParen,
+    RightParen,
     LeftBrace,
     RightBrace,
     Comma,
@@ -49,12 +49,17 @@ pub enum TokenKind {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    line: usize,
     offset: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, line: usize, offset: usize) -> Self {
-        Self { kind, line, offset }
+    pub fn new(kind: TokenKind, offset: usize) -> Self {
+        Self { kind, offset }
+    }
+}
+
+impl PartialEq<TokenKind> for Token {
+    fn eq(&self, other: &TokenKind) -> bool {
+        self.kind == *other
     }
 }

@@ -2,11 +2,14 @@ use core::panic;
 use std::env;
 
 mod dent;
-mod errors;
-mod grammar;
+mod expressions;
 mod lexer;
+mod lexer_errors;
+mod miette_errors;
 mod parser;
+mod precedence;
 mod scanner;
+mod statements;
 mod tokens;
 use dent::*;
 

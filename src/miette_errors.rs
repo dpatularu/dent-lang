@@ -1,16 +1,14 @@
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
-use crate::tokens::Token;
-
 #[derive(Diagnostic, Debug, Error)]
-#[error("Unexpected token '{bad_char}'")]
+#[error("Unexpected character '{character}'")]
 #[diagnostic(help("Remove it"))]
-pub struct SingleTokenError {
+pub struct UnknownCharacter {
     #[source_code]
     pub source_code: String,
 
-    pub bad_char: char,
+    pub character: char,
 
     #[label = "this character"]
     pub err_span: SourceSpan,
@@ -19,7 +17,7 @@ pub struct SingleTokenError {
 #[derive(Diagnostic, Debug, Error)]
 #[error("Unterminated string")]
 #[diagnostic(help("Close the string with \""))]
-pub struct StringTerminationError {
+pub struct UnterminatedString {
     #[source_code]
     pub source_code: String,
 
@@ -30,11 +28,22 @@ pub struct StringTerminationError {
 #[derive(Diagnostic, Debug, Error)]
 #[error("Malformed number")]
 #[diagnostic(help("Only floating point numbers are supported"))]
-pub struct MalformedNumberError {
+pub struct MalformedNumber {
     #[source_code]
     pub source_code: String,
 
     #[label = "this number"]
+    pub err_span: SourceSpan,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Unterminated block comment")]
+#[diagnostic(help("Close the comment with */"))]
+pub struct UnterminatedBlockComment {
+    #[source_code]
+    pub source_code: String,
+
+    #[label = "this block comment"]
     pub err_span: SourceSpan,
 }
 

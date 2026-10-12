@@ -39,14 +39,22 @@ impl Dent {
 
     fn run(source: &str) {
         let lexer = Lexer::new(source)
-            .filter_map(|t| if t.is_ok() { Some(t.unwrap()) } else { None })
+            .filter_map(|t| {
+                if t.is_ok() {
+                    Some(t.unwrap())
+                } else {
+                    println!("{:?}", t);
+                    None
+                }
+            })
             .collect();
         let parser = Parser::new(lexer, &source);
         for token in parser {
             match token {
-                Ok(t) => {
-                    println!("{:?}", t);
-                }
+                Ok(t) => match t.evaluate() {
+                    Ok(e) => println!("{:?}", e),
+                    Err(e) => println!("{:?}", e.into_miette_report(source)),
+                },
                 Err(e) => {
                     println!("{:?}", e);
                 }

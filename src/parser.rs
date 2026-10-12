@@ -1,7 +1,7 @@
 use std::{iter::Peekable, ops::Range};
 
 use crate::{
-    expressions::{BinaryOperator, Expression, UnaryOperator},
+    expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator},
     parser_errors::ParserError,
     tokens::{Token, TokenKind},
 };
@@ -39,6 +39,38 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn synchronize(&mut self) {
+        while let Some(token) = self.advance() {
+            if token.kind == TokenKind::SemiColon {
+                break;
+            }
+            let Some(token) = self.peek() else {
+                break;
+            };
+
+            if matches!(
+                token.kind,
+                TokenKind::Class
+                    | TokenKind::Fun
+                    | TokenKind::Var
+                    | TokenKind::For
+                    | TokenKind::If
+                    | TokenKind::While
+                    | TokenKind::Print
+                    | TokenKind::Return
+            ) {
+                break;
+            }
+        }
+    }
+
+    fn make_expression(&self, kind: ExpressionKind) -> Expression {
+        Expression {
+            kind,
+            span: self.error_span.clone(),
+        }
+    }
+
     fn parse_binary_operator(token: &Token) -> Result<BinaryOperator, ParserError> {
         match token.kind {
             TokenKind::EqualEqual => Ok(BinaryOperator::Equal),
@@ -51,6 +83,8 @@ impl<'a> Parser<'a> {
             TokenKind::Minus => Ok(BinaryOperator::Minus),
             TokenKind::Star => Ok(BinaryOperator::Multiply),
             TokenKind::Slash => Ok(BinaryOperator::Divide),
+            TokenKind::And => Ok(BinaryOperator::And),
+            TokenKind::Or => Ok(BinaryOperator::Or),
             _ => Err(ParserError::UnexpectedBinaryOperator {
                 span: token.span.clone(),
             }),
@@ -71,7 +105,7 @@ impl<'a> Parser<'a> {
         let condition = self.parse_comparison()?;
 
         if self.take_if(&[TokenKind::QuestionMark]).is_none() {
-            return Ok(condition);
+            return Ok(self.make_expression(condition));
         }
 
         let then_branch = self.parse_expression()?;
@@ -82,29 +116,31 @@ impl<'a> Parser<'a> {
 
         let else_branch = self.parse_expression()?;
 
-        Ok(Expression::Ternary {
-            condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
-            else_branch: Box::new(else_branch),
-        })
+        let ternary = self.make_expression(ExpressionKind::Ternary {
+            condition: Box::new(self.make_expression(condition)),
+            then_branch: Box::new(self.make_expression(then_branch)),
+            else_branch: Box::new(self.make_expression(else_branch)),
+        });
+
+        Ok(ternary)
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParserError> {
+    fn parse_expression(&mut self) -> Result<ExpressionKind, ParserError> {
         let mut expression = self.parse_comparison()?;
 
         while let Some(token) = self.take_if(&[TokenKind::BangEqual, TokenKind::EqualEqual]) {
             let right = self.parse_comparison()?;
 
-            expression = Expression::Binary {
-                left: Box::new(expression),
+            expression = ExpressionKind::Binary {
+                left: Box::new(self.make_expression(expression)),
                 operator: Self::parse_binary_operator(&token)?,
-                right: Box::new(right),
+                right: Box::new(self.make_expression(right)),
             };
         }
         Ok(expression)
     }
 
-    fn parse_comparison(&mut self) -> Result<Expression, ParserError> {
+    fn parse_comparison(&mut self) -> Result<ExpressionKind, ParserError> {
         let mut expression = self.parse_term()?;
 
         while let Some(token) = self.take_if(&[
@@ -112,66 +148,68 @@ impl<'a> Parser<'a> {
             TokenKind::GreaterEqual,
             TokenKind::Less,
             TokenKind::LessEqual,
+            TokenKind::And,
+            TokenKind::Or,
         ]) {
             let right = self.parse_term()?;
-            expression = Expression::Binary {
-                left: Box::new(expression),
+            expression = ExpressionKind::Binary {
+                left: Box::new(self.make_expression(expression)),
                 operator: Self::parse_binary_operator(&token)?,
-                right: Box::new(right),
+                right: Box::new(self.make_expression(right)),
             };
         }
         Ok(expression)
     }
 
-    fn parse_term(&mut self) -> Result<Expression, ParserError> {
+    fn parse_term(&mut self) -> Result<ExpressionKind, ParserError> {
         let mut expression = self.parse_factor()?;
 
         while let Some(token) = self.take_if(&[TokenKind::Plus, TokenKind::Minus]) {
             let right = self.parse_factor()?;
-            expression = Expression::Binary {
-                left: Box::new(expression),
+            expression = ExpressionKind::Binary {
+                left: Box::new(self.make_expression(expression)),
                 operator: Self::parse_binary_operator(&token)?,
-                right: Box::new(right),
+                right: Box::new(self.make_expression(right)),
             };
         }
         Ok(expression)
     }
 
-    fn parse_factor(&mut self) -> Result<Expression, ParserError> {
+    fn parse_factor(&mut self) -> Result<ExpressionKind, ParserError> {
         let mut expression = self.parse_unary()?;
 
         while let Some(token) = self.take_if(&[TokenKind::Star, TokenKind::Slash]) {
             let right = self.parse_unary()?;
-            expression = Expression::Binary {
-                left: Box::new(expression),
+            expression = ExpressionKind::Binary {
+                left: Box::new(self.make_expression(expression)),
                 operator: Self::parse_binary_operator(&token)?,
-                right: Box::new(right),
+                right: Box::new(self.make_expression(right)),
             };
         }
         Ok(expression)
     }
 
-    fn parse_unary(&mut self) -> Result<Expression, ParserError> {
+    fn parse_unary(&mut self) -> Result<ExpressionKind, ParserError> {
         if let Some(token) = self.take_if(&[TokenKind::Bang, TokenKind::Minus]) {
             let expression = self.parse_unary()?;
-            return Ok(Expression::Unary {
+            return Ok(ExpressionKind::Unary {
                 operator: Self::parse_unary_operator(&token)?,
-                expression: Box::new(expression),
+                expression: Box::new(self.make_expression(expression)),
             });
         }
 
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Result<Expression, ParserError> {
+    fn parse_primary(&mut self) -> Result<ExpressionKind, ParserError> {
         let token = self.advance().ok_or(ParserError::UnexpectedEof)?;
 
         match token.kind {
-            TokenKind::False => Ok(Expression::Boolean(false)),
-            TokenKind::True => Ok(Expression::Boolean(true)),
-            TokenKind::Nil => Ok(Expression::Nil),
-            TokenKind::Number(number) => Ok(Expression::Number(number)),
-            TokenKind::String(string) => Ok(Expression::String(string.to_string())),
+            TokenKind::False => Ok(ExpressionKind::Boolean(false)),
+            TokenKind::True => Ok(ExpressionKind::Boolean(true)),
+            TokenKind::Nil => Ok(ExpressionKind::Nil),
+            TokenKind::Number(number) => Ok(ExpressionKind::Number(number)),
+            TokenKind::String(string) => Ok(ExpressionKind::String(string.to_string())),
             TokenKind::LeftParen => {
                 let expression = self.parse_expression()?;
                 if self.take_if(&[TokenKind::RightParen]).is_none() {
@@ -180,7 +218,9 @@ impl<'a> Parser<'a> {
                     });
                 }
 
-                Ok(Expression::Group(Box::new(expression)))
+                Ok(ExpressionKind::Group(Box::new(
+                    self.make_expression(expression),
+                )))
             }
             _ => Err(ParserError::UnexpectedExpression { span: token.span }),
         }

@@ -3,6 +3,7 @@ use std::env;
 
 mod dent;
 mod expressions;
+mod interpreter;
 mod lexer;
 mod lexer_errors;
 mod lexer_miette_errors;
@@ -10,6 +11,8 @@ mod parser;
 mod parser_errors;
 mod parser_miette_errors;
 mod precedence;
+mod runtime_errors;
+mod runtime_miette_errors;
 mod scanner;
 mod statements;
 mod tokens;

@@ -36,4 +36,9 @@ pub enum Expression {
         operator: BinaryOperator,
         right: Box<Expression>,
     },
+    Ternary {
+        condition: Box<Expression>,
+        then_branch: Box<Expression>,
+        else_branch: Box<Expression>
+    }
 }

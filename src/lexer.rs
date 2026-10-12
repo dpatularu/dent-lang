@@ -99,6 +99,8 @@ impl<'a> Lexer<'a> {
             TokenKind::Less => Token::new(kind, offset),
             TokenKind::Greater => Token::new(kind, offset),
             TokenKind::Slash => Token::new(kind, offset),
+            TokenKind::QuestionMark => Token::new(kind, offset),
+            TokenKind::Colon => Token::new(kind, offset),
             TokenKind::String(_) => Token::new(kind, offset),
             TokenKind::Number(_) => Token::new(kind, offset),
             TokenKind::Identifier(_) => Token::new(kind, offset),
@@ -156,9 +158,9 @@ impl<'a> Lexer<'a> {
 
     fn either_or(&mut self, to_match: char, former: TokenKind, latter: TokenKind) -> Token {
         if let Some(_) = self.advance_if(|c| c == to_match) {
-            self.make_token(former)
-        } else {
             self.make_token(latter)
+        } else {
+            self.make_token(former)
         }
     }
 }
@@ -216,7 +218,10 @@ impl<'a> Lexer<'a> {
             }
         }
         match number.parse() {
-            Ok(n) => Ok(self.make_token(TokenKind::Number(n))),
+            Ok(n) => Ok(Token {
+                kind: TokenKind::Number(n),
+                span: self.offset..(self.offset + number.len()),
+            }),
             Err(_) => self.make_malformed_number_error(&number),
         }
     }
@@ -260,6 +265,8 @@ impl<'a> Lexer<'a> {
             '+' => Ok(self.make_token(TokenKind::Plus)),
             '*' => Ok(self.make_token(TokenKind::Star)),
             ';' => Ok(self.make_token(TokenKind::SemiColon)),
+            '?' => Ok(self.make_token(TokenKind::QuestionMark)),
+            ':' => Ok(self.make_token(TokenKind::Colon)),
             '/' => match self.peek() {
                 Some('/') => self.line_comment(),
                 Some('*') => self.block_comment(),
@@ -291,4 +298,3 @@ impl<'a> Iterator for Lexer<'a> {
         None
     }
 }
-

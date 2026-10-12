@@ -14,25 +14,25 @@ impl LexerError {
         match self {
             LexerError::UnterminatedString { span } => lexer_miette_errors::UnterminatedString {
                 source_code: source_code.into(),
-                err_span: (span.start, span.len()).into(),
+                err_span: span.into(),
             }
             .into(),
             LexerError::UnterminatedBlockComment { span } => {
                 lexer_miette_errors::UnterminatedBlockComment {
                     source_code: source_code.into(),
-                    err_span: (span.start, span.len()).into(),
+                    err_span: span.into(),
                 }
                 .into()
             }
             LexerError::MalformedNumber { span } => lexer_miette_errors::MalformedNumber {
                 source_code: source_code.into(),
-                err_span: (span.start, span.len()).into(),
+                err_span: span.into(),
             }
             .into(),
             LexerError::UnknownCharacter { span, character } => {
                 lexer_miette_errors::UnknownCharacter {
                     source_code: source_code.into(),
-                    err_span: (span.start, span.len()).into(),
+                    err_span: span.into(),
                     character,
                 }
                 .into()

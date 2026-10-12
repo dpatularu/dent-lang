@@ -5,7 +5,8 @@ use crate::parser_miette_errors;
 pub enum ParserError {
     UnexpectedBinaryOperator { span: Range<usize> },
     UnexpectedUnaryOperator { span: Range<usize> },
-    UnexpectedLiteral { span: Range<usize>},
+    UnexpectedExpression { span: Range<usize> },
+    UnexpectedEof,
     UnclosedGroup { span: Range<usize> },
 }
 
@@ -20,14 +21,14 @@ impl ParserError {
                 .into()
             }
             ParserError::UnexpectedUnaryOperator { span } => {
-                parser_miette_errors::UnexpectedBinaryOperator {
+                parser_miette_errors::UnexpectedUnaryOperator {
                     source_code: source_code.into(),
                     err_span: (span.start, span.len()).into(),
                 }
                 .into()
             }
-                        ParserError::UnexpectedLiteral { span } => {
-                parser_miette_errors::UnexpectedLiteral {
+            ParserError::UnexpectedExpression { span } => {
+                parser_miette_errors::UnexpectedExpression {
                     source_code: source_code.into(),
                     err_span: (span.start, span.len()).into(),
                 }
@@ -36,6 +37,10 @@ impl ParserError {
             ParserError::UnclosedGroup { span } => parser_miette_errors::UnclosedParenthesis {
                 source_code: source_code.into(),
                 err_span: (span.start, span.len()).into(),
+            }
+            .into(),
+            ParserError::UnexpectedEof => parser_miette_errors::UnexpectedEof {
+                source_code: source_code.into(),
             }
             .into(),
         }

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use miette::Result;
 
-use crate::runtime_errors::{RuntimeError, RuntimeErrorKind};
+use crate::runtime::errors::{RuntimeError, RuntimeErrorKind};
 
 #[derive(Debug, Clone)]
 pub enum UnaryOperator {

@@ -4,27 +4,39 @@ use std::{
     process::exit,
 };
 
-use crate::{lexer::Lexer, parser::Parser};
+use dent_lang::{lexer::lexer::Lexer, parser::parser::Parser};
+
+
 
 pub struct Dent {
+    args: Vec<String>,
     had_error: bool,
 }
 
 impl Dent {
-    pub fn new() -> Self {
-        Self { had_error: false }
+    fn new(args: Vec<String>) -> Self {
+        Self { had_error: false, args}
     }
 
-    pub fn run_file(&self, file_path: &str) {
+    pub fn run(args: Vec<String>) {
+        let mut dent = Dent::new(args);
+        match dent.args.len() {
+            1 => dent.execute_prompt(),
+            2 => dent.execute_file(&dent.args[1]),
+            _ => panic!("Usage: dent [script]"),
+        }
+    }
+
+    fn execute_file(&self, file_path: &str) {
         let script = fs::read_to_string(file_path).unwrap();
 
-        Self::run(&script);
+        Self::execute(&script);
         if self.had_error {
             exit(65);
         }
     }
 
-    pub fn run_prompt(&mut self) {
+    fn execute_prompt(&mut self) {
         let stdin = io::stdin();
         let mut reader = BufReader::new(stdin);
 
@@ -32,12 +44,12 @@ impl Dent {
             print!("> ");
             let mut buffer = String::new();
             reader.read_line(&mut buffer).unwrap();
-            Self::run(&buffer);
+            Self::execute(&buffer);
             self.had_error = false;
         }
     }
 
-    fn run(source: &str) {
+    fn execute(source: &str) {
         let lexer = Lexer::new(source)
             .filter_map(|t| {
                 if t.is_ok() {

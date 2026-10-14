@@ -1,13 +1,8 @@
 use std::{iter::Peekable, str::CharIndices};
 
-use crate::{
-    lexer_errors::LexerError::{self},
-    tokens::{
-        Token,
-        TokenKind::{self},
-    },
-};
 use phf::phf_map;
+
+use crate::lexer::{errors::LexerError, tokens::{Token, TokenKind}};
 
 static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
     "and" => TokenKind::And,

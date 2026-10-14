@@ -1,10 +1,6 @@
 use std::{iter::Peekable, ops::Range};
 
-use crate::{
-    expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator},
-    parser_errors::ParserError,
-    tokens::{Token, TokenKind},
-};
+use crate::{lexer::tokens::{Token, TokenKind}, parser::errors::ParserError, syntax::expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator}};
 
 pub struct Parser<'a> {
     tokens: Peekable<std::vec::IntoIter<Token>>,

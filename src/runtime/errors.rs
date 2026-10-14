@@ -12,6 +12,7 @@ pub enum RuntimeErrorKind {
     TernaryConditionalError,
 }
 
+#[derive(Debug)]
 pub struct RuntimeError {
     pub kind: RuntimeErrorKind,
     pub span: Range<usize>,

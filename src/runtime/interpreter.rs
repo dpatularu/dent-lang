@@ -1,4 +1,4 @@
-use crate::{runtime::{Value, errors::RuntimeErrorKind}, syntax::expressions::{BinaryOperator, UnaryOperator}};
+use crate::{parser::errors::ParserError, runtime::{Value, errors::RuntimeErrorKind}, syntax::{expressions::{BinaryOperator, UnaryOperator}, statements::{Statement, StatementKind}}};
 
 
 impl BinaryOperator {
@@ -29,6 +29,22 @@ impl UnaryOperator {
             (UnaryOperator::Negative, Value::Number(a)) => Ok(Value::Number(-a)),
             (UnaryOperator::Not, Value::Boolean(b)) => Ok(Value::Boolean(!b)),
             _ => Err(RuntimeErrorKind::UnaryApplicationError),
+        }
+    }
+}
+
+pub struct Interpreter {
+
+}
+
+impl Interpreter{
+    pub fn interpret(statements: Vec<Statement>) {
+        for statement in statements{
+            match statement.kind{
+                StatementKind::PrintStatement(expression) => println!("{:?}", expression.evaluate()),
+                StatementKind::ExpressionStatement(expression) => print!("Evaluted {:?}", expression.evaluate()),
+            }
+
         }
     }
 }

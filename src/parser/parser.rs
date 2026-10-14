@@ -1,6 +1,6 @@
-use std::{iter::Peekable, ops::Range};
+use std::{io::ErrorKind::UnexpectedEof, iter::Peekable, ops::Range};
 
-use crate::{lexer::tokens::{Token, TokenKind}, parser::errors::ParserError, syntax::expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator}};
+use crate::{lexer::tokens::{Token, TokenKind}, parser::errors::{ExpectedSemicolon, ParserError}, syntax::{expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator}, statements::{Statement, StatementKind}}};
 
 pub struct Parser<'a> {
     tokens: Peekable<std::vec::IntoIter<Token>>,
@@ -34,6 +34,7 @@ impl<'a> Parser<'a> {
             None
         }
     }
+
 
     fn synchronize(&mut self) {
         while let Some(token) = self.advance() {
@@ -95,6 +96,55 @@ impl<'a> Parser<'a> {
                 span: token.span.clone(),
             }),
         }
+    }
+    
+    fn parse_statement(&mut self) -> Result<Statement, ParserError> {
+        let Some(token) = self.peek() else {
+            return Err(ParserError::UnexpectedEof)
+        };
+
+
+        let statement_kind = match &token.kind {
+            TokenKind::Print => self.parse_print(),
+            TokenKind::True
+            | TokenKind::False
+            | TokenKind::Nil
+            | TokenKind::String(_)
+            | TokenKind::Number(_)
+            | TokenKind::LeftParen
+             => self.parse_expression_statement(),
+             _ => todo!()
+        };
+
+        let Some(should_be_token) = self.peek() else {
+            return Err(ParserError::ExpectedSemicolon { span: self.error_span.end..self.error_span.end });
+        };
+
+        if statement_kind.is_ok() && should_be_token.kind != TokenKind::SemiColon {
+            return Err(ParserError::ExpectedSemicolon { span: self.error_span.end..self.error_span.end });
+        }
+        if statement_kind.is_err(){
+            self.synchronize();
+        }else{
+            self.advance();
+        }
+
+        Ok(Statement::new(statement_kind?, self.error_span.clone()))
+
+    }
+
+    fn parse_print(&mut self) -> Result<StatementKind, ParserError>{
+        self.advance();
+        let expression = self.parse_ternary()?;
+        Ok(StatementKind::PrintStatement(expression))
+        
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<StatementKind, ParserError> {
+        let expression = self.parse_ternary()?;
+        Ok(StatementKind::ExpressionStatement(expression))
+
+
     }
 
     fn parse_ternary(&mut self) -> Result<Expression, ParserError> {
@@ -197,40 +247,63 @@ impl<'a> Parser<'a> {
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Result<ExpressionKind, ParserError> {
-        let token = self.advance().ok_or(ParserError::UnexpectedEof)?;
+fn parse_primary(&mut self) -> Result<ExpressionKind, ParserError> {
+    let t = self.error_span.clone();
+    let token = self.peek().ok_or(ParserError::IncompleteBinaryOperation{span: t})?;
 
-        match token.kind {
-            TokenKind::False => Ok(ExpressionKind::Boolean(false)),
-            TokenKind::True => Ok(ExpressionKind::Boolean(true)),
-            TokenKind::Nil => Ok(ExpressionKind::Nil),
-            TokenKind::Number(number) => Ok(ExpressionKind::Number(number)),
-            TokenKind::String(string) => Ok(ExpressionKind::String(string.to_string())),
-            TokenKind::LeftParen => {
-                let expression = self.parse_expression()?;
-                if self.take_if(&[TokenKind::RightParen]).is_none() {
-                    return Err(ParserError::UnclosedGroup {
-                        span: self.error_span.clone(),
-                    });
-                }
-
-                Ok(ExpressionKind::Group(Box::new(
-                    self.make_expression(expression),
-                )))
-            }
-            _ => Err(ParserError::UnexpectedExpression { span: token.span }),
+    match &token.kind {
+        TokenKind::False => {
+            self.advance();
+            Ok(ExpressionKind::Boolean(false))
         }
+        TokenKind::True => {
+            self.advance();
+            Ok(ExpressionKind::Boolean(true))
+        }
+        TokenKind::Nil => {
+            self.advance();
+            Ok(ExpressionKind::Nil)
+        }
+        TokenKind::Number(number) => {
+            let number = *number;
+            self.advance();
+            Ok(ExpressionKind::Number(number))
+        }
+        TokenKind::String(string) => {
+            let string = string.clone();
+            self.advance();
+            Ok(ExpressionKind::String(string))
+        }
+        TokenKind::LeftParen => {
+            self.advance();
+
+            let expression = self.parse_expression()?;
+
+            if self.take_if(&[TokenKind::RightParen]).is_none() {
+                return Err(ParserError::UnclosedGroup {
+                    span: self.error_span.clone(),
+                });
+            }
+
+            Ok(ExpressionKind::Group(Box::new(
+                self.make_expression(expression),
+            )))
+        }
+        _ => Err(ParserError::UnexpectedExpression {
+            span: token.span.clone(),
+        }),
     }
+}
 }
 
 impl Iterator for Parser<'_> {
-    type Item = miette::Result<Expression>;
+    type Item = miette::Result<Statement>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.peek()?;
         self.error_span = self.peek()?.span.start..self.peek()?.span.start;
         Some(
-            self.parse_ternary()
+            self.parse_statement()
                 .map_err(|err| err.into_miette_report(self.source_code)),
         )
     }

@@ -1,11 +1,14 @@
 use std::ops::Range;
 
+#[derive(Debug)]
 pub enum ParserError {
     UnexpectedBinaryOperator { span: Range<usize> },
+    IncompleteBinaryOperation { span: Range<usize>},
     UnexpectedUnaryOperator { span: Range<usize> },
     UnexpectedExpression { span: Range<usize> },
     UnexpectedEof,
     UnclosedGroup { span: Range<usize> },
+    ExpectedSemicolon {span: Range<usize>}
 }
 
 impl ParserError {
@@ -14,33 +17,45 @@ impl ParserError {
             ParserError::UnexpectedBinaryOperator { span } => {
                 UnexpectedBinaryOperator {
                     source_code: source_code.into(),
-                    err_span: (span.start, span.len()).into(),
+                    err_span: span.into(),
                 }
                 .into()
             }
+                ParserError::IncompleteBinaryOperation { span } => {
+                IncompleteBinaryOperation {
+                    source_code: source_code.into(),
+                    err_span: span.into(),
+                }
+                .into()
+            },
             ParserError::UnexpectedUnaryOperator { span } => {
                 UnexpectedUnaryOperator {
                     source_code: source_code.into(),
-                    err_span: (span.start, span.len()).into(),
+                    err_span: span.into(),
                 }
                 .into()
             }
             ParserError::UnexpectedExpression { span } => {
                 UnexpectedExpression {
                     source_code: source_code.into(),
-                    err_span: (span.start, span.len()).into(),
+                    err_span: span.into(),
                 }
                 .into()
             }
             ParserError::UnclosedGroup { span } => UnclosedParenthesis {
                 source_code: source_code.into(),
-                err_span: (span.start, span.len()).into(),
+                err_span: span.into(),
             }
             .into(),
             ParserError::UnexpectedEof => UnexpectedEof {
                 source_code: source_code.into(),
             }
             .into(),
+            ParserError::ExpectedSemicolon {span}  => ExpectedSemicolon {
+                source_code: source_code.into(),
+                err_span: span.into()
+            }.into()
+        
         }
     }
 }
@@ -52,6 +67,16 @@ use thiserror::Error;
 #[error("Bad binary operator")]
 #[diagnostic(help("Only +, -, * and / are supported"))]
 pub struct UnexpectedBinaryOperator {
+    #[source_code]
+    pub source_code: String,
+
+    #[label = "this operator"]
+    pub err_span: SourceSpan,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Incomplete binary operation")]
+pub struct IncompleteBinaryOperation {
     #[source_code]
     pub source_code: String,
 
@@ -96,4 +121,16 @@ pub struct UnclosedParenthesis {
 pub struct UnexpectedEof {
     #[source_code]
     pub source_code: String,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Expected semicolon")]
+#[diagnostic(help("Close statement with semicolon"))]
+
+pub struct ExpectedSemicolon {
+    #[source_code]
+    pub source_code: String,
+
+    #[label = "Expected here"]
+    pub err_span: SourceSpan,
 }

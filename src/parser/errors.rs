@@ -72,7 +72,6 @@ pub struct UnexpectedUnaryOperator {
 
 #[derive(Diagnostic, Debug, Error)]
 #[error("Unexpected expression")]
-#[diagnostic(help("idk"))]
 pub struct UnexpectedExpression {
     #[source_code]
     pub source_code: String,
@@ -88,7 +87,7 @@ pub struct UnclosedParenthesis {
     #[source_code]
     pub source_code: String,
 
-    #[label = "this operator"]
+    #[label = "this expresion"]
     pub err_span: SourceSpan,
 }
 

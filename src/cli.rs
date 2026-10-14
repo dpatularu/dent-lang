@@ -4,7 +4,7 @@ use std::{
     process::exit,
 };
 
-use dent_lang::{lexer::lexer::Lexer, parser::parser::Parser};
+use dent_lang::{lexer::Lexer, parser::Parser};
 
 
 
@@ -53,6 +53,7 @@ impl Dent {
         let lexer = Lexer::new(source)
             .filter_map(|t| {
                 if t.is_ok() {
+                                        println!("{:?}", t);
                     Some(t.unwrap())
                 } else {
                     println!("{:?}", t);

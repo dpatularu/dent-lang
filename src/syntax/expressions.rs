@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 
 use miette::Result;
 
@@ -38,6 +38,7 @@ pub enum ExpressionKind {
     String(String),
     Boolean(bool),
     Nil,
+    Identifier(String),
     Group(Box<Expression>),
     Unary {
         operator: UnaryOperator,
@@ -61,6 +62,17 @@ impl Expression {
             kind,
             span: self.span.clone(),
         })
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Nil => write!(f, "Nil"),
+            Value::Number(num) => write!(f, "{}", num),
+            Value::String(s) => write!(f, "{}", s),
+            Value::Boolean(b) => write!(f, "{}", b),
+        }
     }
 }
 
@@ -96,7 +108,8 @@ impl ExpressionKind {
                 } else {
                     Ok(else_branch.kind.evaluate()?)
                 }
-            }
+            },
+            ExpressionKind::Identifier(id) => {Ok(Value::Nil)}
         }
     }
 }

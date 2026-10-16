@@ -1,6 +1,6 @@
-use std::{io::ErrorKind::UnexpectedEof, iter::Peekable, ops::Range};
+use std::{iter::Peekable, ops::Range};
 
-use crate::{lexer::tokens::{Token, TokenKind}, parser::errors::{ExpectedSemicolon, ParserError}, syntax::{expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator}, statements::{Statement, StatementKind}}};
+use crate::{lexer::tokens::{Token, TokenKind}, parser::errors::ParserError, syntax::{expressions::{BinaryOperator, Expression, ExpressionKind, UnaryOperator}, statements::{Statement, StatementKind}}};
 
 pub struct Parser<'a> {
     tokens: Peekable<std::vec::IntoIter<Token>>,
@@ -41,9 +41,6 @@ impl<'a> Parser<'a> {
             if token.kind == TokenKind::SemiColon {
                 break;
             }
-            let Some(token) = self.peek() else {
-                break;
-            };
 
             if matches!(
                 token.kind,
@@ -105,24 +102,18 @@ impl<'a> Parser<'a> {
 
 
         let statement_kind = match &token.kind {
-            TokenKind::Print => self.parse_print(),
             TokenKind::True
             | TokenKind::False
             | TokenKind::Nil
             | TokenKind::String(_)
             | TokenKind::Number(_)
             | TokenKind::LeftParen
+            | TokenKind::Identifier(_)
              => self.parse_expression_statement(),
+            TokenKind::Print => self.parse_print(),
+            TokenKind::Var => self.parse_variable_declaration(),
              _ => todo!()
         };
-
-        let Some(should_be_token) = self.peek() else {
-            return Err(ParserError::ExpectedSemicolon { span: self.error_span.end..self.error_span.end });
-        };
-
-        if statement_kind.is_ok() && should_be_token.kind != TokenKind::SemiColon {
-            return Err(ParserError::ExpectedSemicolon { span: self.error_span.end..self.error_span.end });
-        }
         if statement_kind.is_err(){
             self.synchronize();
         }else{
@@ -136,14 +127,38 @@ impl<'a> Parser<'a> {
     fn parse_print(&mut self) -> Result<StatementKind, ParserError>{
         self.advance();
         let expression = self.parse_ternary()?;
+        if self.take_if(&[TokenKind::SemiColon]).is_none() {
+            return Err(ParserError::ExpectedSemicolon { span: expression.span.end..expression.span.end });
+        }
         Ok(StatementKind::PrintStatement(expression))
         
     }
 
     fn parse_expression_statement(&mut self) -> Result<StatementKind, ParserError> {
         let expression = self.parse_ternary()?;
+        if self.take_if(&[TokenKind::SemiColon]).is_none() {
+            return Err(ParserError::ExpectedSemicolon { span: expression.span.end..expression.span.end });
+        }
         Ok(StatementKind::ExpressionStatement(expression))
+    }
 
+    fn parse_variable_declaration(&mut self) -> Result<StatementKind, ParserError> {
+        self.advance();
+        let Some(identifier) = self.advance() else {
+            return Err(ParserError::UnexpectedEof);
+        };
+        match identifier.kind {
+            TokenKind::Identifier(_) => {},
+            _ => return Err(ParserError::ExpectedIdentifier { span: identifier.span}),
+        }
+        if self.take_if(&[TokenKind::Equal]).is_none() {
+            return Err(ParserError::ExpectedEqual { span: self.error_span.end..self.error_span.end });
+        }
+        let expression = self.parse_ternary()?;
+        if self.take_if(&[TokenKind::SemiColon]).is_none() {
+            return Err(ParserError::ExpectedSemicolon { span: expression.span.end..expression.span.end });
+        }
+        Ok(StatementKind::VariableDeclaration(expression))
 
     }
 
@@ -288,6 +303,11 @@ fn parse_primary(&mut self) -> Result<ExpressionKind, ParserError> {
             Ok(ExpressionKind::Group(Box::new(
                 self.make_expression(expression),
             )))
+        },
+        TokenKind::Identifier(id) =>{
+            let id = id.clone();
+            self.advance();
+            Ok(ExpressionKind::Identifier(id))
         }
         _ => Err(ParserError::UnexpectedExpression {
             span: token.span.clone(),

@@ -8,7 +8,10 @@ pub enum ParserError {
     UnexpectedExpression { span: Range<usize> },
     UnexpectedEof,
     UnclosedGroup { span: Range<usize> },
-    ExpectedSemicolon {span: Range<usize>}
+    ExpectedSemicolon {span: Range<usize>},
+    ExpectedEqual {span: Range<usize>},
+    ExpectedIdentifier {span: Range<usize>},
+
 }
 
 impl ParserError {
@@ -52,6 +55,14 @@ impl ParserError {
             }
             .into(),
             ParserError::ExpectedSemicolon {span}  => ExpectedSemicolon {
+                source_code: source_code.into(),
+                err_span: span.into()
+            }.into(),
+            ParserError::ExpectedEqual {span}  => ExpectedEqual {
+                source_code: source_code.into(),
+                err_span: span.into()
+            }.into(),
+            ParserError::ExpectedIdentifier {span}  => ExpectedIdentifier {
                 source_code: source_code.into(),
                 err_span: span.into()
             }.into()
@@ -128,6 +139,28 @@ pub struct UnexpectedEof {
 #[diagnostic(help("Close statement with semicolon"))]
 
 pub struct ExpectedSemicolon {
+    #[source_code]
+    pub source_code: String,
+
+    #[label = "Expected here"]
+    pub err_span: SourceSpan,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Expected equal")]
+#[diagnostic(help("Add an equal sign here to start a variable declaration"))]
+
+pub struct ExpectedEqual {
+    #[source_code]
+    pub source_code: String,
+
+    #[label = "Expected here"]
+    pub err_span: SourceSpan,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Expected identifier")]
+pub struct ExpectedIdentifier {
     #[source_code]
     pub source_code: String,
 

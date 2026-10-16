@@ -1,9 +1,9 @@
 use std::env;
 
 mod cli;
-use cli::Dent;
+use cli::Lox;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    Dent::run(args);
+    Lox::run(args);
 }

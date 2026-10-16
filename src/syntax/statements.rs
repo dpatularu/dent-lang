@@ -1,11 +1,12 @@
 use std::ops::Range;
 
-use crate::syntax::{expressions::Expression, statements::StatementKind::{ExpressionStatement, PrintStatement}};
+use crate::syntax::expressions::Expression;
 
 #[derive(Debug)]
 pub enum StatementKind {
     ExpressionStatement(Expression),
     PrintStatement(Expression),
+    VariableDeclaration(Expression),
 }
 
 #[derive(Debug)]

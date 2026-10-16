@@ -1,4 +1,4 @@
-use crate::{parser::errors::ParserError, runtime::{Value, errors::RuntimeErrorKind}, syntax::{expressions::{BinaryOperator, UnaryOperator}, statements::{Statement, StatementKind}}};
+use crate::{runtime::{Value, errors::{RuntimeError, RuntimeErrorKind}}, syntax::{expressions::{self, BinaryOperator, Expression, UnaryOperator}, statements::{Statement, StatementKind}}};
 
 
 impl BinaryOperator {
@@ -37,14 +37,30 @@ pub struct Interpreter {
 
 }
 
-impl Interpreter{
-    pub fn interpret(statements: Vec<Statement>) {
-        for statement in statements{
-            match statement.kind{
-                StatementKind::PrintStatement(expression) => println!("{:?}", expression.evaluate()),
-                StatementKind::ExpressionStatement(expression) => print!("Evaluted {:?}", expression.evaluate()),
-            }
+impl Interpreter {
+    pub fn new() -> Self {
+        Self {}
+    }
 
+    pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<(), RuntimeError> {
+        for statement in statements{
+           match statement.kind{
+                StatementKind::PrintStatement(expression) => Self::interpret_print(expression)?,
+                StatementKind::ExpressionStatement(expression) => Self::interpret_expression_statement(expression)?,
+                StatementKind::VariableDeclaration(expression) => Self::interpret_expression_statement(expression)?
+            };
         }
+        Ok(())
+    }
+
+    fn interpret_print(expression: Expression) -> Result<(), RuntimeError>{
+        println!("{}", expression.evaluate()?);
+        Ok(())
+    }
+
+    fn interpret_expression_statement(expression: Expression) -> Result<(), RuntimeError> {
+        expression.evaluate()?;
+        println!("Evaluated {}", expression.evaluate()?);
+        Ok(())
     }
 }

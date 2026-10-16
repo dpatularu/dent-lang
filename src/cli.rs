@@ -4,26 +4,24 @@ use std::{
     process::exit,
 };
 
-use dent_lang::{lexer::Lexer, parser::Parser};
+use lox_lang::{lexer::{Lexer, TokenKind}, parser::Parser, runtime::interpreter::Interpreter, syntax::statements::Statement};
 
-
-
-pub struct Dent {
+pub struct Lox {
     args: Vec<String>,
     had_error: bool,
 }
 
-impl Dent {
+impl Lox {
     fn new(args: Vec<String>) -> Self {
         Self { had_error: false, args}
     }
 
     pub fn run(args: Vec<String>) {
-        let mut dent = Dent::new(args);
-        match dent.args.len() {
-            1 => dent.execute_prompt(),
-            2 => dent.execute_file(&dent.args[1]),
-            _ => panic!("Usage: dent [script]"),
+        let mut lox = Lox::new(args);
+        match lox.args.len() {
+            1 => lox.execute_prompt(),
+            2 => lox.execute_file(&lox.args[1]),
+            _ => panic!("Usage: lox [script]"),
         }
     }
 
@@ -50,15 +48,27 @@ impl Dent {
     }
 
     fn execute(source: &str) {
-        let lexer = Lexer::new(source);
-        let parser = Parser::new(lexer, &source);
-        for token in parser {
-            match token {
-                Ok(t) => println!("{:?}", t),
-                Err(e) => {
-                    println!("{:?}", e);
-                }
+        let tokens = Lexer::new(source).filter_map(|t| {
+            match t {
+                Ok(token) => {
+                    match token.kind {
+                        TokenKind::BlockComment(_) | TokenKind::LineComment(_) => None,
+                        _ => Some(token)
+                    }
+                },
+                Err(e) => {println!("{:?}", e); None},
             }
+        }).collect();
+        let statements: Vec<Statement> = Parser::new(tokens, &source).filter_map(|t| {
+            match t {
+                Ok(statement) => Some(statement),
+                Err(e) => {println!("{:?}", e); None},
+            }
+        }).collect();
+
+        let mut interpreter = Interpreter::new();
+        if let Err(e) =  interpreter.interpret(statements){
+            println!("{}", e.into_miette_report(source))
         }
     }
 }

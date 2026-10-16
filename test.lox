@@ -1,0 +1,3 @@
+print 5; // important
+/* im a comment */
+print (2 + 5 - 1);

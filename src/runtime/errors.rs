@@ -42,6 +42,13 @@ impl RuntimeError {
                 }
                 .into()
             }
+            RuntimeErrorKind::TernaryConditionalError => {
+                TernaryApplicationError {
+                    source_code: source_code.into(),
+                    err_span: self.span.into(),
+                }
+                .into()
+            }
         }
     }
 }

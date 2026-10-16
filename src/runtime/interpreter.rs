@@ -1,4 +1,4 @@
-use crate::{runtime::{Value, errors::{RuntimeError, RuntimeErrorKind}}, syntax::{expressions::{self, BinaryOperator, Expression, UnaryOperator}, statements::{Statement, StatementKind}}};
+use crate::{runtime::{Value, environment::Environment, errors::{RuntimeError, RuntimeErrorKind}}, syntax::{expressions::{self, BinaryOperator, Expression, UnaryOperator}, statements::{Statement, StatementKind}}};
 
 
 impl BinaryOperator {
@@ -34,33 +34,42 @@ impl UnaryOperator {
 }
 
 pub struct Interpreter {
+    environment: Environment
 
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            environment: Environment::new()
+        }
     }
 
     pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<(), RuntimeError> {
         for statement in statements{
            match statement.kind{
-                StatementKind::PrintStatement(expression) => Self::interpret_print(expression)?,
-                StatementKind::ExpressionStatement(expression) => Self::interpret_expression_statement(expression)?,
-                StatementKind::VariableDeclaration(expression) => Self::interpret_expression_statement(expression)?
+                StatementKind::PrintStatement(expression) => self.interpret_print(expression)?,
+                StatementKind::ExpressionStatement(expression) => self.interpret_expression_statement(expression)?,
+                StatementKind::VariableDeclaration(identifier, expression) => self.interpret_variable_declaration(&identifier, expression)?
             };
         }
         Ok(())
     }
 
-    fn interpret_print(expression: Expression) -> Result<(), RuntimeError>{
+    fn interpret_print(&self, expression: Expression) -> Result<(), RuntimeError>{
         println!("{}", expression.evaluate()?);
         Ok(())
     }
 
-    fn interpret_expression_statement(expression: Expression) -> Result<(), RuntimeError> {
+    fn interpret_expression_statement(&self, expression: Expression) -> Result<(), RuntimeError> {
         expression.evaluate()?;
         println!("Evaluated {}", expression.evaluate()?);
+        Ok(())
+    }
+
+    fn interpret_variable_declaration(&mut self, identifier: &str, expression: Expression) -> Result<(), RuntimeError> {
+        let value = expression.evaluate()?;
+        self.environment.define(&identifier, value);
         Ok(())
     }
 }

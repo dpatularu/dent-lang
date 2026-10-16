@@ -148,18 +148,18 @@ impl<'a> Parser<'a> {
             return Err(ParserError::UnexpectedEof);
         };
         match identifier.kind {
-            TokenKind::Identifier(_) => {},
+            TokenKind::Identifier(id) => {
+                if self.take_if(&[TokenKind::Equal]).is_none() {
+                    return Err(ParserError::ExpectedEqual { span: self.error_span.end..self.error_span.end });
+                }
+                let expression = self.parse_ternary()?;
+                if self.take_if(&[TokenKind::SemiColon]).is_none() {
+                    return Err(ParserError::ExpectedSemicolon { span: expression.span.end..expression.span.end });
+                }
+                Ok(StatementKind::VariableDeclaration(id, expression))
+            },
             _ => return Err(ParserError::ExpectedIdentifier { span: identifier.span}),
         }
-        if self.take_if(&[TokenKind::Equal]).is_none() {
-            return Err(ParserError::ExpectedEqual { span: self.error_span.end..self.error_span.end });
-        }
-        let expression = self.parse_ternary()?;
-        if self.take_if(&[TokenKind::SemiColon]).is_none() {
-            return Err(ParserError::ExpectedSemicolon { span: expression.span.end..expression.span.end });
-        }
-        Ok(StatementKind::VariableDeclaration(expression))
-
     }
 
     fn parse_ternary(&mut self) -> Result<Expression, ParserError> {

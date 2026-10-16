@@ -6,7 +6,7 @@ use crate::syntax::expressions::Expression;
 pub enum StatementKind {
     ExpressionStatement(Expression),
     PrintStatement(Expression),
-    VariableDeclaration(Expression),
+    VariableDeclaration(String, Expression),
 }
 
 #[derive(Debug)]
